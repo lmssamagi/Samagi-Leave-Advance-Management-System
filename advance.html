@@ -57,12 +57,6 @@
           </div>
 
           <div class="mb-3">
-            <label class="form-label">Date of Request</label>
-            <input type="date" id="requestDate" class="form-control" required />
-            <div class="invalid-feedback">Please select the request date.</div>
-          </div>
-
-          <div class="mb-3">
             <label class="form-label">Advance Amount (LKR)</label>
             <input
               type="number"
@@ -95,7 +89,7 @@
 
   <script>
     const SCRIPT_URL =
-      "https://script.google.com/macros/s/AKfycbyPSUQe85LGgN8rBnU6-G2VvB_BC0pPX7msLRYxgWp0CEW4dvb1VUFW7iSIKWCnU7wT/exec";
+      "https://script.google.com/macros/s/AKfycbxPgQzzXWqbE0qPi5mvPlMl2cI3I-GKBEWCDYltqheBA1RCwIHVFKF5KF-_h_zvdJNn/exec";
 
     const advForm = document.getElementById("advForm");
     const statusMsg = document.getElementById("statusMsg");
@@ -117,7 +111,6 @@
         type: "advance",
         employeeCode: document.getElementById("employeeCode").value.trim(),
         employeeName: document.getElementById("employeeName").value.trim(),
-        requestDate: document.getElementById("requestDate").value,
         amount: document.getElementById("amount").value,
         reason: document.getElementById("reason").value.trim()
       };
