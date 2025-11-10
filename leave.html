@@ -163,8 +163,8 @@
     const numDaysInput   = document.getElementById("numDays");
     const daysHint       = document.getElementById("daysHint");
 
-    // ---- LOOKUP EMPLOYEE DETAILS ----
-    async function lookupEmployee() {
+    // ---- JSONP LOOKUP EMPLOYEE DETAILS ----
+    function lookupEmployee() {
       const code = empCodeInput.value.trim();
       balanceBox.classList.add("d-none");
       empNameInput.value = "";
@@ -177,41 +177,55 @@
       statusMsg.textContent = "Looking up employee details...";
       statusMsg.className = "mt-3 small text-muted";
 
-      try {
-        const res = await fetch(SCRIPT_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            type: "lookupEmployee",
-            employeeCode: code
-          })
-        });
+      // unique callback name
+      const callbackName = "employeeLookupCallback_" + Date.now();
+      window[callbackName] = function (data) {
+        try {
+          if (!data || !data.success) {
+            statusMsg.textContent = "❌ " + ((data && data.error) || "Employee not found.");
+            statusMsg.className = "mt-3 small text-danger";
+            return;
+          }
 
-        const data = await res.json();
+          empNameInput.value = data.employeeName || "";
 
-        if (!data.success) {
-          statusMsg.textContent = "❌ " + (data.error || "Employee not found.");
-          statusMsg.className = "mt-3 small text-danger";
-          return;
+          const b = data.balances || {};
+          balAnnual.textContent  = b.annual  != null ? b.annual  : 0;
+          balCasual.textContent  = b.casual  != null ? b.casual  : 0;
+          balWeekend.textContent = b.weekend != null ? b.weekend : 0;
+
+          balanceBox.classList.remove("d-none");
+          statusMsg.textContent = "✅ Employee details loaded.";
+          statusMsg.className = "mt-3 small text-success";
+        } finally {
+          // cleanup
+          delete window[callbackName];
+          if (script && script.parentNode) {
+            script.parentNode.removeChild(script);
+          }
         }
+      };
 
-        // Fill name (read-only)
-        empNameInput.value = data.employeeName || "";
+      const url =
+        SCRIPT_URL +
+        "?type=lookupEmployee" +
+        "&employeeCode=" +
+        encodeURIComponent(code) +
+        "&callback=" +
+        encodeURIComponent(callbackName);
 
-        // Fill balances (read-only info)
-        const b = data.balances || {};
-        balAnnual.textContent  = (b.annual  != null ? b.annual  : 0);
-        balCasual.textContent  = (b.casual  != null ? b.casual  : 0);
-        balWeekend.textContent = (b.weekend != null ? b.weekend : 0);
-
-        balanceBox.classList.remove("d-none");
-        statusMsg.textContent = "✅ Employee details loaded.";
-        statusMsg.className = "mt-3 small text-success";
-      } catch (err) {
-        console.error(err);
+      const script = document.createElement("script");
+      script.src = url;
+      script.onerror = function () {
         statusMsg.textContent = "❌ Error looking up employee. Please contact HR.";
         statusMsg.className = "mt-3 small text-danger";
-      }
+        delete window[callbackName];
+        if (script.parentNode) {
+          script.parentNode.removeChild(script);
+        }
+      };
+
+      document.body.appendChild(script);
     }
 
     lookupBtn.addEventListener("click", lookupEmployee);
@@ -248,7 +262,7 @@
     leaveFromInput.addEventListener("input", recalcDays);
     leaveToInput.addEventListener("input", recalcDays);
 
-    // ---- SUBMIT LEAVE FORM ----
+    // ---- SUBMIT LEAVE FORM (unchanged) ----
     leaveForm.addEventListener("submit", async function (e) {
       e.preventDefault();
       if (!leaveForm.checkValidity()) {
