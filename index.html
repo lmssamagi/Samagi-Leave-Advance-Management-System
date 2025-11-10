@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Energyarc | Employee Requests</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #f5f5f5;
+    }
+    .container {
+      max-width: 900px;
+      margin: 20px auto;
+      padding: 15px;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .card {
+      background: #ffffff;
+      padding: 15px;
+      margin-bottom: 20px;
+      border-radius: 10px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .card h2 {
+      margin-top: 0;
+      font-size: 1.2rem;
+      margin-bottom: 10px;
+    }
+    label {
+      display: block;
+      margin-top: 10px;
+      font-size: 0.9rem;
+    }
+    input, textarea, select {
+      width: 100%;
+      padding: 8px;
+      margin-top: 5px;
+      box-sizing: border-box;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      font-size: 0.9rem;
+    }
+    textarea {
+      min-height: 60px;
+      resize: vertical;
+    }
+    button {
+      margin-top: 15px;
+      padding: 10px 15px;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.95rem;
+      cursor: pointer;
+    }
+    .btn-primary {
+      background: #007bff;
+      color: #fff;
+    }
+    .btn-primary:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .status {
+      margin-top: 10px;
+      font-size: 0.9rem;
+    }
+    .status.success {
+      color: green;
+    }
+    .status.error {
+      color: red;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Energyarc Employee Requests</h1>
+
+    <!-- Leave Request Form -->
+    <div class="card">
+      <h2>Leave Request</h2>
+      <form id="leaveForm">
+        <label>Employee Code
+          <input type="text" id="leaveEmployeeCode" placeholder="e.g. EA001" required />
+        </label>
+
+        <label>Employee Name
+          <input type="text" id="leaveEmployeeName" required />
+        </label>
+
+        <label>Date of Request
+          <input type="date" id="leaveRequestDate" required />
+        </label>
+
+        <label>Leave Type
+          <select id="leaveType" required>
+            <option value="">Select type</option>
+            <option value="Annual Leave">Annual Leave</option>
+            <option value="Casual Leave">Casual Leave</option>
+            <option value="Special Sick Leave">Special Sick Leave</option>
+            <option value="Short Leave">Short Leave</option>
+            <option value="Weekend Leave">Weekend Leave</option>
+            <option value="Maternity Leave">Maternity Leave</option>
+            <option value="Paternity Leave">Paternity Leave</option>
+          </select>
+        </label>
+
+        <label>Leave From
+          <input type="date" id="leaveFrom" required />
+        </label>
+
+        <label>Leave To
+          <input type="date" id="leaveTo" required />
+        </label>
+
+        <label>Number of Days
+          <input type="number" id="leaveNumDays" min="0.5" step="0.5" required />
+        </label>
+
+        <label>Reason
+          <textarea id="leaveReason" placeholder="Optional"></textarea>
+        </label>
+
+        <button type="submit" id="leaveSubmit" class="btn-primary">Submit Leave Request</button>
+        <div id="leaveStatus" class="status"></div>
+      </form>
+    </div>
+
+    <!-- Salary Advance Request Form -->
+    <div class="card">
+      <h2>Salary Advance Request</h2>
+      <form id="advanceForm">
+        <label>Employee Code
+          <input type="text" id="advEmployeeCode" placeholder="e.g. EA001" required />
+        </label>
+
+        <label>Employee Name
+          <input type="text" id="advEmployeeName" required />
+        </label>
+
+        <label>Date of Request
+          <input type="date" id="advRequestDate" required />
+        </label>
+
+        <label>Advance Amount (LKR)
+          <input type="number" id="advAmount" min="0" step="0.01" required />
+        </label>
+
+        <label>Reason
+          <textarea id="advReason" required></textarea>
+        </label>
+
+        <label>Recovery Plan
+          <select id="advRecoveryPlan">
+            <option value="Next salary">Deduct from next salary</option>
+            <option value="3 months">Split over 3 months</option>
+            <option value="6 months">Split over 6 months</option>
+            <option value="Other">Other (describe in Reason)</option>
+          </select>
+        </label>
+
+        <button type="submit" id="advSubmit" class="btn-primary">Submit Salary Advance Request</button>
+        <div id="advStatus" class="status"></div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyPSUQe85LGgN8rBnU6-G2VvB_BC0pPX7msLRYxgWp0CEW4dvb1VUFW7iSIKWCnU7wT/exec";
+
+    async function sendRequest(payload, statusEl, buttonEl, formEl) {
+      statusEl.textContent = "";
+      statusEl.className = "status";
+      buttonEl.disabled = true;
+
+      try {
+        const res = await fetch(SCRIPT_URL, {
+          method: "POST",
+          mode: "no-cors",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(payload)
+        });
+
+        statusEl.textContent = "Submitted successfully.";
+        statusEl.classList.add("success");
+        formEl.reset();
+      } catch (err) {
+        statusEl.textContent = "Error submitting. Please contact admin.";
+        statusEl.classList.add("error");
+        console.error(err);
+      } finally {
+        buttonEl.disabled = false;
+      }
+    }
+
+    // Leave form handler
+    document.getElementById("leaveForm").addEventListener("submit", function(e) {
+      e.preventDefault();
+      const payload = {
+        type: "leave",
+        employeeCode: document.getElementById("leaveEmployeeCode").value.trim(),
+        employeeName: document.getElementById("leaveEmployeeName").value.trim(),
+        requestDate: document.getElementById("leaveRequestDate").value,
+        leaveType: document.getElementById("leaveType").value,
+        leaveFrom: document.getElementById("leaveFrom").value,
+        leaveTo: document.getElementById("leaveTo").value,
+        numDays: document.getElementById("leaveNumDays").value,
+        reason: document.getElementById("leaveReason").value.trim()
+      };
+      const statusEl = document.getElementById("leaveStatus");
+      const btn = document.getElementById("leaveSubmit");
+      sendRequest(payload, statusEl, btn, this);
+    });
+
+    // Salary advance form handler
+    document.getElementById("advanceForm").addEventListener("submit", function(e) {
+      e.preventDefault();
+      const payload = {
+        type: "advance",
+        employeeCode: document.getElementById("advEmployeeCode").value.trim(),
+        employeeName: document.getElementById("advEmployeeName").value.trim(),
+        requestDate: document.getElementById("advRequestDate").value,
+        amount: document.getElementById("advAmount").value,
+        reason: document.getElementById("advReason").value.trim(),
+        recoveryPlan: document.getElementById("advRecoveryPlan").value
+      };
+      const statusEl = document.getElementById("advStatus");
+      const btn = document.getElementById("advSubmit");
+      sendRequest(payload, statusEl, btn, this);
+    });
+  </script>
+</body>
+</html>
