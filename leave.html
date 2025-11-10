@@ -4,9 +4,16 @@
   <meta charset="UTF-8" />
   <title>Leave Request | Samagi Employee Portal</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <!-- Bootstrap CSS -->
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+  />
   <style>
-    body { background: #f5f5f5; }
+    body {
+      background: #f5f5f5;
+      margin: 0;
+    }
     .form-card {
       max-width: 600px;
       margin: 1.5rem auto;
@@ -18,8 +25,12 @@
 <body>
   <nav class="navbar navbar-light bg-primary bg-gradient mb-3">
     <div class="container-fluid">
-      <button class="btn btn-link text-white text-decoration-none" onclick="location.href='index.html'">← Home</button>
-      <span class="navbar-brand mb-0 h6 text-white">Leave Request</span>
+      <button class="btn btn-link text-white text-decoration-none" onclick="location.href='index.html'">
+        ← Home
+      </button>
+      <span class="navbar-brand mb-0 h6 text-white">
+        Leave Request
+      </span>
       <span></span>
     </div>
   </nav>
@@ -28,34 +39,28 @@
     <div class="card form-card">
       <div class="card-body p-4">
         <h5 class="card-title mb-3">Leave Request Form</h5>
+        <p class="text-muted small mb-3">
+          Fill in the details below and submit your leave request for approval.
+        </p>
 
         <form id="leaveForm" class="needs-validation" novalidate>
-          <!-- Employee Code -->
           <div class="mb-3">
             <label class="form-label">Employee Code</label>
-            <div class="input-group">
-              <input type="text" id="employeeCode" class="form-control" required />
-              <button type="button" class="btn btn-outline-secondary" id="lookupBtn">Get Details</button>
-            </div>
+            <input type="text" id="employeeCode" class="form-control" required />
+            <div class="invalid-feedback">Employee code is required.</div>
           </div>
 
-          <!-- Employee Name (readonly) -->
           <div class="mb-3">
             <label class="form-label">Employee Name</label>
-            <input type="text" id="employeeName" class="form-control" readonly />
+            <input type="text" id="employeeName" class="form-control" required />
+            <div class="invalid-feedback">Employee name is required.</div>
           </div>
 
-          <!-- Balances -->
-          <div id="balanceBox" class="alert alert-light border mt-1 d-none small">
-            <strong>Leave Balances</strong>
-            <div class="mt-1">
-              Annual: <span id="balAnnual">0</span> days<br />
-              Casual: <span id="balCasual">0</span> days<br />
-              Weekend: <span id="balWeekend">0</span> days
-            </div>
+          <div class="mb-3">
+            <label class="form-label">Date of Request</label>
+            <input type="date" id="requestDate" class="form-control" required />
+            <div class="invalid-feedback">Please select the request date.</div>
           </div>
-
-          <hr />
 
           <div class="mb-3">
             <label class="form-label">Leave Type</label>
@@ -69,23 +74,33 @@
               <option value="Maternity Leave">Maternity Leave</option>
               <option value="Paternity Leave">Paternity Leave</option>
             </select>
+            <div class="invalid-feedback">Please select a leave type.</div>
           </div>
 
           <div class="row">
-            <div class="col-md-6 mb-3">
+            <div class="col-12 col-md-6 mb-3">
               <label class="form-label">Leave From</label>
               <input type="date" id="leaveFrom" class="form-control" required />
+              <div class="invalid-feedback">Please select start date.</div>
             </div>
-            <div class="col-md-6 mb-3">
+            <div class="col-12 col-md-6 mb-3">
               <label class="form-label">Leave To</label>
               <input type="date" id="leaveTo" class="form-control" required />
+              <div class="invalid-feedback">Please select end date.</div>
             </div>
           </div>
 
           <div class="mb-3">
             <label class="form-label">Number of Days</label>
-            <input type="number" id="numDays" class="form-control" readonly />
-            <div id="daysHint" class="form-text text-muted small"></div>
+            <input
+              type="number"
+              id="numDays"
+              class="form-control"
+              min="0.5"
+              step="0.5"
+              required
+            />
+            <div class="invalid-feedback">Please enter number of days.</div>
           </div>
 
           <div class="mb-3">
@@ -94,7 +109,9 @@
           </div>
 
           <div class="d-grid">
-            <button type="submit" id="submitBtn" class="btn btn-primary">Submit Leave Request</button>
+            <button type="submit" id="submitBtn" class="btn btn-primary">
+              Submit Leave Request
+            </button>
           </div>
 
           <div id="statusMsg" class="mt-3 small"></div>
@@ -104,87 +121,55 @@
   </div>
 
   <script>
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz4BCCE6fQt8lQpdkv-dyHyUoszhMyXGwdjVHcS-xnvdXlie2XFNe6okOKxL5g9xRTz/exec";
+    const SCRIPT_URL =
+      "https://script.google.com/macros/s/AKfycbyPSUQe85LGgN8rBnU6-G2VvB_BC0pPX7msLRYxgWp0CEW4dvb1VUFW7iSIKWCnU7wT/exec";
 
-    const empCodeInput = document.getElementById("employeeCode");
-    const empNameInput = document.getElementById("employeeName");
-    const balanceBox = document.getElementById("balanceBox");
-    const balAnnual = document.getElementById("balAnnual");
-    const balCasual = document.getElementById("balCasual");
-    const balWeekend = document.getElementById("balWeekend");
+    const leaveForm = document.getElementById("leaveForm");
     const statusMsg = document.getElementById("statusMsg");
+    const submitBtn = document.getElementById("submitBtn");
 
-    // Lookup Employee
-    document.getElementById("lookupBtn").addEventListener("click", () => {
-      const code = empCodeInput.value.trim();
-      if (!code) return alert("Please enter Employee Code.");
-      statusMsg.textContent = "Looking up employee...";
-
-      const callback = "cb" + Date.now();
-      window[callback] = (res) => {
-        if (!res || !res.success) {
-          statusMsg.textContent = "❌ " + (res.error || "Employee not found");
-          return;
-        }
-        empNameInput.value = res.employeeName;
-        balAnnual.textContent = res.balances.annual || 0;
-        balCasual.textContent = res.balances.casual || 0;
-        balWeekend.textContent = res.balances.weekend || 0;
-        balanceBox.classList.remove("d-none");
-        statusMsg.textContent = "✅ Employee found.";
-      };
-
-      const s = document.createElement("script");
-      s.src = `${SCRIPT_URL}?type=lookupEmployee&employeeCode=${encodeURIComponent(code)}&callback=${callback}`;
-      document.body.appendChild(s);
-    });
-
-    // Auto calculate days
-    const from = document.getElementById("leaveFrom");
-    const to = document.getElementById("leaveTo");
-    const numDays = document.getElementById("numDays");
-    const daysHint = document.getElementById("daysHint");
-
-    function calcDays() {
-      if (!from.value || !to.value) return;
-      const f = new Date(from.value);
-      const t = new Date(to.value);
-      if (t < f) {
-        daysHint.textContent = "End date must be after start date.";
+    leaveForm.addEventListener("submit", async function (e) {
+      e.preventDefault();
+      if (!leaveForm.checkValidity()) {
+        leaveForm.classList.add("was-validated");
         return;
       }
-      const days = Math.round((t - f) / (1000 * 60 * 60 * 24)) + 1;
-      numDays.value = days;
-      daysHint.textContent = `${days} day(s) inclusive.`;
-    }
 
-    from.addEventListener("change", calcDays);
-    to.addEventListener("change", calcDays);
+      leaveForm.classList.remove("was-validated");
+      statusMsg.textContent = "";
+      statusMsg.className = "mt-3 small";
+      submitBtn.disabled = true;
 
-    // Submit Leave
-    document.getElementById("leaveForm").addEventListener("submit", (e) => {
-      e.preventDefault();
-      const data = {
+      const payload = {
         type: "leave",
-        employeeCode: empCodeInput.value.trim(),
-        employeeName: empNameInput.value.trim(),
+        employeeCode: document.getElementById("employeeCode").value.trim(),
+        employeeName: document.getElementById("employeeName").value.trim(),
+        requestDate: document.getElementById("requestDate").value,
         leaveType: document.getElementById("leaveType").value,
-        leaveFrom: from.value,
-        leaveTo: to.value,
-        numDays: numDays.value,
+        leaveFrom: document.getElementById("leaveFrom").value,
+        leaveTo: document.getElementById("leaveTo").value,
+        numDays: document.getElementById("numDays").value,
         reason: document.getElementById("reason").value.trim()
       };
 
-      fetch(SCRIPT_URL, {
-        method: "POST",
-        mode: "no-cors",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data)
-      });
+      try {
+        await fetch(SCRIPT_URL, {
+          method: "POST",
+          mode: "no-cors",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
 
-      statusMsg.textContent = "✅ Leave submitted successfully.";
-      e.target.reset();
-      balanceBox.classList.add("d-none");
+        statusMsg.textContent = "✅ Leave request submitted successfully.";
+        statusMsg.classList.add("text-success");
+        leaveForm.reset();
+      } catch (err) {
+        console.error(err);
+        statusMsg.textContent = "❌ Error submitting. Please contact HR.";
+        statusMsg.classList.add("text-danger");
+      } finally {
+        submitBtn.disabled = false;
+      }
     });
   </script>
 </body>
