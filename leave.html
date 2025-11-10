@@ -40,21 +40,40 @@
       <div class="card-body p-4">
         <h5 class="card-title mb-3">Leave Request Form</h5>
         <p class="text-muted small mb-3">
-          Fill in the details below and submit your leave request for approval.
+          Enter your employee code to load your details and leave balances.
         </p>
 
         <form id="leaveForm" class="needs-validation" novalidate>
+          <!-- Employee Code + Lookup -->
           <div class="mb-3">
             <label class="form-label">Employee Code</label>
-            <input type="text" id="employeeCode" class="form-control" required />
+            <div class="input-group">
+              <input type="text" id="employeeCode" class="form-control" required />
+              <button type="button" class="btn btn-outline-secondary" id="lookupBtn">
+                Get Details
+              </button>
+            </div>
             <div class="invalid-feedback">Employee code is required.</div>
           </div>
 
+          <!-- Name (read-only, auto-filled) -->
           <div class="mb-3">
             <label class="form-label">Employee Name</label>
-            <input type="text" id="employeeName" class="form-control" required />
-            <div class="invalid-feedback">Employee name is required.</div>
+            <input type="text" id="employeeName" class="form-control" required readonly />
+            <div class="invalid-feedback">Employee name will appear after lookup.</div>
           </div>
+
+          <!-- Balances display (read-only info) -->
+          <div id="balanceBox" class="alert alert-light border mt-1 d-none small">
+            <strong>Leave Balances</strong>
+            <div class="mt-1">
+              Annual: <span id="balAnnual">0</span> days<br />
+              Casual: <span id="balCasual">0</span> days<br />
+              Weekend: <span id="balWeekend">0</span> days
+            </div>
+          </div>
+
+          <hr />
 
           <div class="mb-3">
             <label class="form-label">Date of Request</label>
@@ -99,8 +118,10 @@
               min="0.5"
               step="0.5"
               required
+              readonly
             />
-            <div class="invalid-feedback">Please enter number of days.</div>
+            <div class="invalid-feedback">Dates must be valid so days can be calculated.</div>
+            <div id="daysHint" class="form-text text-muted small"></div>
           </div>
 
           <div class="mb-3">
@@ -124,14 +145,124 @@
     const SCRIPT_URL =
       "https://script.google.com/macros/s/AKfycbyPSUQe85LGgN8rBnU6-G2VvB_BC0pPX7msLRYxgWp0CEW4dvb1VUFW7iSIKWCnU7wT/exec";
 
-    const leaveForm = document.getElementById("leaveForm");
-    const statusMsg = document.getElementById("statusMsg");
-    const submitBtn = document.getElementById("submitBtn");
+    const leaveForm   = document.getElementById("leaveForm");
+    const statusMsg   = document.getElementById("statusMsg");
+    const submitBtn   = document.getElementById("submitBtn");
+    const lookupBtn   = document.getElementById("lookupBtn");
+    const balanceBox  = document.getElementById("balanceBox");
 
+    const empCodeInput = document.getElementById("employeeCode");
+    const empNameInput = document.getElementById("employeeName");
+
+    const balAnnual   = document.getElementById("balAnnual");
+    const balCasual   = document.getElementById("balCasual");
+    const balWeekend  = document.getElementById("balWeekend");
+
+    const leaveFromInput = document.getElementById("leaveFrom");
+    const leaveToInput   = document.getElementById("leaveTo");
+    const numDaysInput   = document.getElementById("numDays");
+    const daysHint       = document.getElementById("daysHint");
+
+    // ---- LOOKUP EMPLOYEE DETAILS ----
+    async function lookupEmployee() {
+      const code = empCodeInput.value.trim();
+      balanceBox.classList.add("d-none");
+      empNameInput.value = "";
+
+      if (!code) {
+        alert("Please enter your Employee Code first.");
+        return;
+      }
+
+      statusMsg.textContent = "Looking up employee details...";
+      statusMsg.className = "mt-3 small text-muted";
+
+      try {
+        const res = await fetch(SCRIPT_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "lookupEmployee",
+            employeeCode: code
+          })
+        });
+
+        const data = await res.json();
+
+        if (!data.success) {
+          statusMsg.textContent = "❌ " + (data.error || "Employee not found.");
+          statusMsg.className = "mt-3 small text-danger";
+          return;
+        }
+
+        // Fill name (read-only)
+        empNameInput.value = data.employeeName || "";
+
+        // Fill balances (read-only info)
+        const b = data.balances || {};
+        balAnnual.textContent  = (b.annual  != null ? b.annual  : 0);
+        balCasual.textContent  = (b.casual  != null ? b.casual  : 0);
+        balWeekend.textContent = (b.weekend != null ? b.weekend : 0);
+
+        balanceBox.classList.remove("d-none");
+        statusMsg.textContent = "✅ Employee details loaded.";
+        statusMsg.className = "mt-3 small text-success";
+      } catch (err) {
+        console.error(err);
+        statusMsg.textContent = "❌ Error looking up employee. Please contact HR.";
+        statusMsg.className = "mt-3 small text-danger";
+      }
+    }
+
+    lookupBtn.addEventListener("click", lookupEmployee);
+
+    // ---- AUTO CALCULATE NUMBER OF DAYS (inclusive) ----
+    function recalcDays() {
+      const fromVal = leaveFromInput.value;
+      const toVal   = leaveToInput.value;
+      daysHint.textContent = "";
+      numDaysInput.value = "";
+
+      if (!fromVal || !toVal) {
+        return;
+      }
+
+      const fromDate = new Date(fromVal);
+      const toDate   = new Date(toVal);
+
+      if (toDate < fromDate) {
+        daysHint.textContent = "End date must be on or after start date.";
+        return;
+      }
+
+      const msPerDay = 24 * 60 * 60 * 1000;
+      const diffMs   = toDate - fromDate;
+      const days     = Math.round(diffMs / msPerDay) + 1; // inclusive
+
+      numDaysInput.value = days;
+      daysHint.textContent = "Calculated as " + days + " day(s) (inclusive).";
+    }
+
+    leaveFromInput.addEventListener("change", recalcDays);
+    leaveToInput.addEventListener("change", recalcDays);
+    leaveFromInput.addEventListener("input", recalcDays);
+    leaveToInput.addEventListener("input", recalcDays);
+
+    // ---- SUBMIT LEAVE FORM ----
     leaveForm.addEventListener("submit", async function (e) {
       e.preventDefault();
       if (!leaveForm.checkValidity()) {
         leaveForm.classList.add("was-validated");
+        return;
+      }
+
+      if (!empNameInput.value.trim()) {
+        alert("Please click 'Get Details' to load your name and balances before submitting.");
+        return;
+      }
+
+      if (!numDaysInput.value || Number(numDaysInput.value) <= 0) {
+        alert("Please select valid dates so number of days can be calculated.");
         return;
       }
 
@@ -142,13 +273,13 @@
 
       const payload = {
         type: "leave",
-        employeeCode: document.getElementById("employeeCode").value.trim(),
-        employeeName: document.getElementById("employeeName").value.trim(),
+        employeeCode: empCodeInput.value.trim(),
+        employeeName: empNameInput.value.trim(),
         requestDate: document.getElementById("requestDate").value,
         leaveType: document.getElementById("leaveType").value,
-        leaveFrom: document.getElementById("leaveFrom").value,
-        leaveTo: document.getElementById("leaveTo").value,
-        numDays: document.getElementById("numDays").value,
+        leaveFrom: leaveFromInput.value,
+        leaveTo: leaveToInput.value,
+        numDays: numDaysInput.value,
         reason: document.getElementById("reason").value.trim()
       };
 
@@ -163,6 +294,10 @@
         statusMsg.textContent = "✅ Leave request submitted successfully.";
         statusMsg.classList.add("text-success");
         leaveForm.reset();
+        balanceBox.classList.add("d-none");
+        empNameInput.value = "";
+        numDaysInput.value = "";
+        daysHint.textContent = "";
       } catch (err) {
         console.error(err);
         statusMsg.textContent = "❌ Error submitting. Please contact HR.";
