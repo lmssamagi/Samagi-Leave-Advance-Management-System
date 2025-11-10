@@ -177,8 +177,8 @@
       statusMsg.textContent = "Looking up employee details...";
       statusMsg.className = "mt-3 small text-muted";
 
-      // unique callback name
       const callbackName = "employeeLookupCallback_" + Date.now();
+
       window[callbackName] = function (data) {
         try {
           if (!data || !data.success) {
@@ -198,7 +198,6 @@
           statusMsg.textContent = "✅ Employee details loaded.";
           statusMsg.className = "mt-3 small text-success";
         } finally {
-          // cleanup
           delete window[callbackName];
           if (script && script.parentNode) {
             script.parentNode.removeChild(script);
