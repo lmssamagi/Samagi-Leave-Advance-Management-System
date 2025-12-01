@@ -50,10 +50,13 @@
             <div class="invalid-feedback">Employee code is required.</div>
           </div>
 
+          <!-- Employee name + balances -->
           <div class="mb-3">
-            <label class="form-label">Employee Name</label>
-            <input type="text" id="employeeName" class="form-control" required />
-            <div class="invalid-feedback">Employee name is required.</div>
+            <label class="form-label">Employee &amp; Leave Balances</label>
+            <div id="balanceInfo" class="small text-muted">
+              <strong>-</strong><br>
+              Annual: - | Casual: - | Weekend: - | Short (this month): -
+            </div>
           </div>
 
           <div class="mb-3">
@@ -67,6 +70,8 @@
               <option value="Weekend Leave">Weekend Leave</option>
               <option value="Maternity Leave">Maternity Leave</option>
               <option value="Paternity Leave">Paternity Leave</option>
+              <option value="Poya Leave">Poya Leave</option>
+              <option value="NoPay Leave">NoPay Leave</option>
             </select>
             <div class="invalid-feedback">Please select a leave type.</div>
           </div>
@@ -82,6 +87,20 @@
               <input type="date" id="leaveTo" class="form-control" required />
               <div class="invalid-feedback">Please select end date.</div>
             </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Number of Days</label>
+            <input
+              type="number"
+              id="numDays"
+              class="form-control"
+              min="0.5"
+              step="0.5"
+              required
+              readonly
+            />
+            <div class="invalid-feedback">Number of days is required.</div>
           </div>
 
           <div class="mb-3">
@@ -103,33 +122,198 @@
 
   <script>
     const SCRIPT_URL =
-      "https://script.google.com/macros/s/AKfycbxPgQzzXWqbE0qPi5mvPlMl2cI3I-GKBEWCDYltqheBA1RCwIHVFKF5KF-_h_zvdJNn/exec";
+      "https://script.google.com/macros/s/AKfycbwckp7p4NPM4U15oNzVOsl2u4sSM6oLiDSsFHonjldMv4nBnPBggvQD4uQXZiX4-Xl73Q/exec";
 
-    const leaveForm = document.getElementById("leaveForm");
-    const statusMsg = document.getElementById("statusMsg");
-    const submitBtn = document.getElementById("submitBtn");
+    const leaveForm   = document.getElementById("leaveForm");
+    const statusMsg   = document.getElementById("statusMsg");
+    const submitBtn   = document.getElementById("submitBtn");
+    const codeInput   = document.getElementById("employeeCode");
+    const leaveTypeEl = document.getElementById("leaveType");
+    const leaveFromEl = document.getElementById("leaveFrom");
+    const leaveToEl   = document.getElementById("leaveTo");
+    const numDaysEl   = document.getElementById("numDays");
+    const balanceInfo = document.getElementById("balanceInfo");
+
+    let currentEmployee = null;
+
+    function setStatus(msg, isError = false) {
+      statusMsg.textContent = msg || "";
+      statusMsg.className = "mt-3 small " + (isError ? "text-danger" : "text-muted");
+    }
+
+    function clearBalances() {
+      balanceInfo.innerHTML =
+        "<strong>-</strong><br>" +
+        "Annual: - | Casual: - | Weekend: - | Short (this month): -";
+    }
+
+    async function fetchEmployee() {
+      const code = codeInput.value.trim();
+      currentEmployee = null;
+      clearBalances();
+
+      if (!code) return;
+
+      try {
+        setStatus("Looking up employee...");
+        const res = await fetch(
+          SCRIPT_URL + "?action=getEmployee&code=" + encodeURIComponent(code)
+        );
+        const data = await res.json();
+        if (!data.success) {
+          setStatus("❌ " + (data.error || "Employee not found"), true);
+          return;
+        }
+
+        currentEmployee = data.employee;
+
+        const name       = currentEmployee.name || "-";
+        const annualBal  = currentEmployee.annualBalance || 0;
+        const casualBal  = currentEmployee.casualBalance || 0;
+        const weekendBal = currentEmployee.weekendBalance || 0;
+        const shortBal   = currentEmployee.shortBalance || 0;
+
+        balanceInfo.innerHTML =
+          "<strong>" + name + "</strong><br>" +
+          "Annual: " + annualBal +
+          " | Casual: " + casualBal +
+          " | Weekend: " + weekendBal +
+          " | Short (this month): " + shortBal;
+
+        setStatus("");
+      } catch (err) {
+        console.error(err);
+        setStatus("❌ Error looking up employee.", true);
+      }
+    }
+
+    codeInput.addEventListener("blur", fetchEmployee);
+
+    function calculateDays() {
+      const from = leaveFromEl.value;
+      const to   = leaveToEl.value;
+
+      if (!from || !to) { numDaysEl.value = ""; return; }
+
+      const start = new Date(from);
+      const end   = new Date(to);
+
+      const diffMs = end - start;
+      const days = diffMs / (1000 * 60 * 60 * 24) + 1;
+
+      if (days > 0) {
+        numDaysEl.value = days.toFixed(1).replace(/\.0$/, "");
+      } else numDaysEl.value = "";
+    }
+
+    leaveFromEl.addEventListener("change", calculateDays);
+    leaveToEl.addEventListener("change", calculateDays);
+
+    function validateBusinessRules(payload) {
+      const errors = [];
+      if (!currentEmployee) {
+        errors.push("Invalid Employee Code.");
+        return errors;
+      }
+
+      const leaveType   = payload.leaveType;
+      const numDays     = parseFloat(payload.numDays || "0");
+      const annualBal   = parseFloat(currentEmployee.annualBalance || "0");
+      const casualBal   = parseFloat(currentEmployee.casualBalance || "0");
+      const weekendBal  = parseFloat(currentEmployee.weekendBalance || "0");
+      const shortBal    = parseFloat(currentEmployee.shortBalance || "0");
+      const specialHR   = currentEmployee.specialHR;
+      const matPatHR    = currentEmployee.matPatHR;
+      const gender      = currentEmployee.gender;
+
+      // Zero balance blocks
+      if (leaveType === "Annual Leave" && annualBal <= 0)
+        errors.push("You do not have Annual Leave balance.");
+
+      if (leaveType === "Casual Leave" && casualBal <= 0)
+        errors.push("You do not have Casual Leave balance.");
+
+      if (leaveType === "Weekend Leave" && weekendBal <= 0)
+        errors.push("You do not have Weekend Leave balance.");
+
+      if (leaveType === "Short Leave" && shortBal <= 0)
+        errors.push("You do not have Short Leave balance this month.");
+
+      // Short Leave = 1 day only
+      if (leaveType === "Short Leave" && numDays !== 1)
+        errors.push("Short Leave can only be 1 day.");
+
+      // Special Sick Leave
+      if (leaveType === "Special Sick Leave") {
+        if (annualBal > 0 || casualBal > 0)
+          errors.push("Special Sick Leave only when Annual & Casual = 0.");
+
+        if (specialHR !== "YES")
+          errors.push("Special Sick Leave requires HR approval.");
+      }
+
+      // Maternity Leave
+      if (leaveType === "Maternity Leave") {
+        if (gender !== "Female")
+          errors.push("Maternity Leave allowed only for female employees.");
+
+        if (matPatHR !== "YES")
+          errors.push("Maternity Leave requires HR approval.");
+      }
+
+      // Paternity Leave
+      if (leaveType === "Paternity Leave") {
+        if (gender !== "Male")
+          errors.push("Paternity Leave allowed only for male employees.");
+
+        if (matPatHR !== "YES")
+          errors.push("Paternity Leave requires HR approval.");
+
+        if (numDays > 2)
+          errors.push("Paternity Leave cannot exceed 2 days.");
+      }
+
+      // NoPay Leave
+      if (leaveType === "NoPay Leave") {
+        if (!(annualBal === 0 && casualBal === 0))
+          errors.push("NoPay Leave allowed only when Annual & Casual = 0.");
+      }
+
+      return errors;
+    }
 
     leaveForm.addEventListener("submit", async function (e) {
       e.preventDefault();
+
       if (!leaveForm.checkValidity()) {
         leaveForm.classList.add("was-validated");
         return;
       }
 
       leaveForm.classList.remove("was-validated");
-      statusMsg.textContent = "";
-      statusMsg.className = "mt-3 small";
       submitBtn.disabled = true;
+      setStatus("");
+
+      calculateDays();
 
       const payload = {
         type: "leave",
-        employeeCode: document.getElementById("employeeCode").value.trim(),
-        employeeName: document.getElementById("employeeName").value.trim(),
-        leaveType: document.getElementById("leaveType").value,
-        leaveFrom: document.getElementById("leaveFrom").value,
-        leaveTo: document.getElementById("leaveTo").value,
+        employeeCode: codeInput.value.trim(),
+        employeeName: currentEmployee ? currentEmployee.name : "",
+        leaveType: leaveTypeEl.value,
+        leaveFrom: leaveFromEl.value,
+        leaveTo: leaveToEl.value,
+        numDays: numDaysEl.value,
         reason: document.getElementById("reason").value.trim()
       };
+
+      const errors = validateBusinessRules(payload);
+
+      if (errors.length > 0) {
+        setStatus("❌ " + errors.join(" "), true);
+        submitBtn.disabled = false;
+        return;
+      }
 
       try {
         await fetch(SCRIPT_URL, {
@@ -139,13 +323,16 @@
           body: JSON.stringify(payload)
         });
 
-        statusMsg.textContent = "✅ Leave request submitted successfully.";
-        statusMsg.classList.add("text-success");
+        setStatus("✅ Leave request submitted.", false);
         leaveForm.reset();
+        clearBalances();
+        numDaysEl.value = "";
+        currentEmployee = null;
+
       } catch (err) {
         console.error(err);
-        statusMsg.textContent = "❌ Error submitting. Please contact HR.";
-        statusMsg.classList.add("text-danger");
+        setStatus("❌ Error submitting. Contact HR.", true);
+
       } finally {
         submitBtn.disabled = false;
       }
